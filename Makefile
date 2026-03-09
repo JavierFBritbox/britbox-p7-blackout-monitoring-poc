@@ -3,7 +3,13 @@ export AWS_PROFILE
 export AWS_REGION
 
 TF_DIR := terraform
-STATE_BUCKET := britbox-$(ENV)-terraform
+
+# Bucket naming: stage → britbox-stage-terraform, prod → britbox-production-terraform
+ifeq ($(ENV),prod)
+  STATE_BUCKET := britbox-production-terraform
+else
+  STATE_BUCKET := britbox-$(ENV)-terraform
+endif
 STATE_KEY := p7-blackout-monitoring-poc/terraform.tfstate
 
 .PHONY: init plan apply destroy fmt validate
