@@ -84,6 +84,7 @@ resource "aws_lambda_function" "blackout_monitor" {
   environment {
     variables = {
       OUTPUT_BUCKET = "britbox-epg-schedule-p7-output-${var.env}"
+      INPUT_BUCKET  = "britbox-epg-schedule-p7-${var.env}"
       BLACKOUT_DAYS = tostring(var.blackout_days)
     }
   }

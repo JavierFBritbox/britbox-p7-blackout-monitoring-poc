@@ -2,6 +2,7 @@ import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/clien
 
 const s3 = new S3Client({ region: process.env.AWS_REGION || "eu-west-1" });
 const OUTPUT_BUCKET = process.env.OUTPUT_BUCKET || "britbox-epg-schedule-p7-output-stage";
+const INPUT_BUCKET = process.env.INPUT_BUCKET || "britbox-epg-schedule-p7-stage";
 const DEFAULT_BLACKOUT_DAYS = parseInt(process.env.BLACKOUT_DAYS || "30", 10);
 
 const CHANNEL_MAP = {
@@ -135,15 +136,23 @@ async function parseAxisFile(fileInfo) {
 
     if (extractAttr(attrs, "blackout") !== "true") continue;
 
+    const eventId = extractAttr(attrs, "event_id");
+    // The mapper appends "_blackout" to the original event ID
+    const inputEventId = eventId.replace(/_blackout$/, "");
+    // Input file is the same name without "_axis", under export/ prefix
+    const inputFileKey = `export/${fileInfo.key.replace("_axis.xml", ".xml")}`;
+
     blackouts.push({
       channel: fileInfo.channel,
       channel_code: CHANNEL_MAP[fileInfo.channel],
       date: fileInfo.date,
-      event_id: extractAttr(attrs, "event_id"),
+      event_id: eventId,
+      input_event_id: inputEventId,
       start_time: extractAttr(attrs, "start_time"),
       end_time: extractAttr(attrs, "end_time"),
       duration: extractAttr(attrs, "duration"),
       source_file: fileInfo.key,
+      input_file: inputFileKey,
       file_version: fileInfo.version,
     });
   }
@@ -242,6 +251,23 @@ export const handler = async (event) => {
     const totalBlackouts = allBlackouts.length;
     const byDate = buildByDateSummary(allBlackouts);
 
+    // Build unique list of affected input files with their blackout event IDs
+    const inputFileMap = {};
+    for (const b of allBlackouts) {
+      if (!inputFileMap[b.input_file]) {
+        inputFileMap[b.input_file] = {
+          bucket: INPUT_BUCKET,
+          key: b.input_file,
+          channel: b.channel,
+          date: b.date,
+          version: b.file_version,
+          event_ids: [],
+        };
+      }
+      inputFileMap[b.input_file].event_ids.push(b.input_event_id);
+    }
+    const inputFilesAffected = Object.values(inputFileMap);
+
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
@@ -252,12 +278,15 @@ export const handler = async (event) => {
           to: formatDate(dateRange.to),
         },
         days,
+        input_bucket: INPUT_BUCKET,
         summary: {
           total_blackouts: totalBlackouts,
           files_processed: files.length,
+          input_files_affected: inputFilesAffected.length,
           by_channel: channelStats,
           by_date: byDate,
         },
+        input_files_affected: inputFilesAffected,
         blackouts: allBlackouts,
       }),
     };
