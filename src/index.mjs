@@ -161,6 +161,80 @@ async function parseAxisFile(fileInfo) {
 }
 
 /**
+ * Read an input file and build a map of EventID → Vpid.
+ */
+async function readInputFileVpids(inputFileKey) {
+  try {
+    const resp = await s3.send(
+      new GetObjectCommand({ Bucket: INPUT_BUCKET, Key: inputFileKey })
+    );
+    const xml = await resp.Body.transformToString();
+
+    const vpidMap = {};
+    // Input XML has <Event> blocks with <EventID> and <Vpid> child elements
+    const eventRegex = /<Event[^>]*>([\s\S]*?)<\/Event>/g;
+    let match;
+
+    while ((match = eventRegex.exec(xml)) !== null) {
+      const block = match[1];
+      const eventIdMatch = block.match(/<EventID>([^<]*)<\/EventID>/);
+      const vpidMatch = block.match(/<Vpid>([^<]*)<\/Vpid>/);
+      if (eventIdMatch) {
+        vpidMap[eventIdMatch[1]] = vpidMatch ? vpidMatch[1].trim() : "";
+      }
+    }
+
+    return vpidMap;
+  } catch (err) {
+    console.warn(`Could not read input file ${inputFileKey}:`, err.message);
+    return null;
+  }
+}
+
+/**
+ * Enrich blackouts with reason by reading corresponding input files.
+ */
+async function enrichBlackoutReasons(allBlackouts) {
+  // Group blackouts by input file
+  const byInputFile = {};
+  for (const b of allBlackouts) {
+    if (!byInputFile[b.input_file]) byInputFile[b.input_file] = [];
+    byInputFile[b.input_file].push(b);
+  }
+
+  // Read input files in batches
+  const inputFileKeys = Object.keys(byInputFile);
+  for (let i = 0; i < inputFileKeys.length; i += BATCH_SIZE) {
+    const batch = inputFileKeys.slice(i, i + BATCH_SIZE);
+    const vpidMaps = await Promise.all(batch.map(readInputFileVpids));
+
+    for (let j = 0; j < batch.length; j++) {
+      const vpidMap = vpidMaps[j];
+      const blackouts = byInputFile[batch[j]];
+
+      for (const b of blackouts) {
+        if (!vpidMap) {
+          b.reason = "Unable to read input file";
+          b.vpid = "";
+          continue;
+        }
+        const vpid = vpidMap[b.input_event_id];
+        if (vpid === undefined) {
+          b.reason = "Event not found in input file";
+          b.vpid = "";
+        } else if (vpid === "") {
+          b.reason = "VPID is empty";
+          b.vpid = "";
+        } else {
+          b.reason = "VPID not found in Movida";
+          b.vpid = vpid;
+        }
+      }
+    }
+  }
+}
+
+/**
  * Process files in batches to avoid overwhelming S3.
  */
 async function processFilesInBatches(files) {
@@ -184,6 +258,9 @@ async function processFilesInBatches(files) {
       allBlackouts.push(...blackouts);
     }
   }
+
+  // Enrich with blackout reasons from input files
+  await enrichBlackoutReasons(allBlackouts);
 
   return { allBlackouts, channelStats };
 }

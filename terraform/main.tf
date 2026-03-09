@@ -30,7 +30,7 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
 
 resource "aws_iam_policy" "s3_read" {
   name        = "p7-blackout-monitoring-poc-${var.env}-s3-read"
-  description = "Allow read access to P7 EPG schedule output bucket"
+  description = "Allow read access to P7 EPG schedule output and input buckets"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -40,14 +40,20 @@ resource "aws_iam_policy" "s3_read" {
         Action = [
           "s3:ListBucket"
         ]
-        Resource = "arn:aws:s3:::britbox-epg-schedule-p7-output-${var.env}"
+        Resource = [
+          "arn:aws:s3:::britbox-epg-schedule-p7-output-${var.env}",
+          "arn:aws:s3:::britbox-epg-schedule-p7-${var.env}"
+        ]
       },
       {
         Effect = "Allow"
         Action = [
           "s3:GetObject"
         ]
-        Resource = "arn:aws:s3:::britbox-epg-schedule-p7-output-${var.env}/*"
+        Resource = [
+          "arn:aws:s3:::britbox-epg-schedule-p7-output-${var.env}/*",
+          "arn:aws:s3:::britbox-epg-schedule-p7-${var.env}/*"
+        ]
       }
     ]
   })
