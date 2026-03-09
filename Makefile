@@ -4,12 +4,12 @@ export AWS_REGION
 
 TF_DIR := terraform
 STATE_BUCKET := britbox-$(ENV)-terraform
-STATE_KEY := p7-blackout-monitoring/terraform.tfstate
+STATE_KEY := p7-blackout-monitoring-poc/terraform.tfstate
 
 .PHONY: init plan apply destroy fmt validate
 
 init:
-	cd $(TF_DIR) && terraform init \
+	cd $(TF_DIR) && terraform init -reconfigure \
 		-backend-config="bucket=$(STATE_BUCKET)" \
 		-backend-config="key=$(STATE_KEY)" \
 		-backend-config="region=$(AWS_REGION)"

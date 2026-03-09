@@ -18,7 +18,7 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Project   = "p7-blackout-monitoring"
+      Project   = "p7-blackout-monitoring-poc"
       Env       = var.env
       ManagedBy = "terraform"
     }

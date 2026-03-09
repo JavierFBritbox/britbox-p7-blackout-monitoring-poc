@@ -3,7 +3,7 @@
 ################################################################################
 
 resource "aws_iam_role" "lambda_role" {
-  name = "p7-blackout-monitoring-${var.env}-role"
+  name = "p7-blackout-monitoring-poc-${var.env}-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -29,7 +29,7 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
 ################################################################################
 
 resource "aws_iam_policy" "s3_read" {
-  name        = "p7-blackout-monitoring-${var.env}-s3-read"
+  name        = "p7-blackout-monitoring-poc-${var.env}-s3-read"
   description = "Allow read access to P7 EPG schedule output bucket"
 
   policy = jsonencode({
@@ -63,7 +63,7 @@ resource "aws_iam_role_policy_attachment" "s3_read" {
 ################################################################################
 
 resource "aws_cloudwatch_log_group" "lambda_logs" {
-  name              = "/aws/lambda/p7-blackout-monitoring-${var.env}"
+  name              = "/aws/lambda/p7-blackout-monitoring-poc-${var.env}"
   retention_in_days = 14
 }
 
@@ -72,7 +72,7 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
 ################################################################################
 
 resource "aws_lambda_function" "blackout_monitor" {
-  function_name    = "p7-blackout-monitoring-${var.env}"
+  function_name    = "p7-blackout-monitoring-poc-${var.env}"
   role             = aws_iam_role.lambda_role.arn
   handler          = "index.handler"
   runtime          = "nodejs20.x"
