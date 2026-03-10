@@ -1,0 +1,10 @@
+{
+  "name": "britbox-p7-blackout-monitoring-poc",
+  "version": "1.0.0",
+  "description": "Lambda POC for P7 blackout monitoring",
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/s3-request-presigner": "^3.0.0"
+  }
+}
